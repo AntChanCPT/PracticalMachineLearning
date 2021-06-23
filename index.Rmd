@@ -1,0 +1,172 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "AntChanCPT"
+date: "23/06/2021"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+
+The report is the submission for the "Practical Machine Learning" course project in the John Hopkins University course on Coursera. 
+
+A decision tree, gradient boosted machine and random forests model was made using the training set and their accuracies compared when predicting with the testing set. The random forests algorithm was found to have the highest accuracy, albeit at the cost of higher processing requirements. This method was used to predict with teh validation set for the quiz section of the course project.
+
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+The goal of this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+The data was generously provided by Groupware for use in this project, which is available at http://groupware.les.inf.puc-rio.br/har. This data had already been separated into a training and a test set.
+
+## Loading, Splitting and Cleaning Data
+
+The data used in this report had already been downloaded from Groupware and could be loaded from the local storage drive. The standard approach to cross validation is to:
+
+1. Split data into training, testing and validation sets
+2. Use the training set to pick features and prediction functions
+3. Apply the prediction functions to the testing set to determine the most accurate prediction function
+4. Apply the most accurate prediction function to the validation set
+
+The course project requires that the algorithms are applied to the supplied test set which would be considered to be the validation set in the standard approach. Therefore, the provided test set was renamed to the validation set, and the provided training set was split into a training and a test set with a 70/30 ratio using the "classe" variable.
+
+First, the data was loaded in.
+
+``` {r load data}
+library(caret)
+
+trainData <- read.csv("./pml-training.csv", header =TRUE)
+validation <- read.csv("./pml-testing.csv", header = TRUE)
+
+dim(trainData)
+dim(validation)
+```
+
+In order to clean the data sets, NA variables were first removed, followed by variables with near zero variance. Then, the first 7 columns were removed as they were variables for identification and timestamps.
+
+```{r clean data}
+trainData <- trainData[, colSums(is.na(trainData)) == 0]
+validation <- validation[, colSums(is.na(validation)) == 0]
+
+trainNzv <- nearZeroVar(trainData)
+trainData <- trainData[, - trainNzv]
+validNzv <- nearZeroVar(validation)
+validation <- validation [, -validNzv]
+
+trainData <- trainData[, -c(1:7)]
+validation <- validation[, -c(1:7)]
+
+dim(trainData)
+dim(validation)
+```
+
+The provided training data was split into training and test data sets with a ratio of 70/30. 
+
+```{r split data}
+set.seed(12321)
+inTrain <- createDataPartition(trainData$classe, p = 0.7, list = FALSE)
+training <- trainData[inTrain,]
+testing <- trainData[-inTrain,]
+```
+
+A correlation matrix was then created to show the correlation between remaining variables in the training set (with the exception of the "classe" variable which was the last column of the data set).
+
+``` {r correlation matrix}
+library(corrplot)
+corrMat <- cor(training[, -length(training)])
+corrplot(corrMat, order = "FPC", method = "color", type = "lower", tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+```
+
+## Prediction Models
+
+Three of the most popular prediction models were tested for their accuracy. The algorithm with the greatest accuracy would then be applied to the validation set for use in the quiz section of the course project. The models were:
+
+1. Decision Tree
+2. Gradient Boosted Machine
+3. Random Forests
+
+### Decision Tree
+
+The decision tree was plotted for visualisation purposes below using the fancyRpartPlot function.
+
+```{r decision tree}
+library(rattle)
+
+modFitDecTree <- train(classe ~ ., method = "rpart", data = training)
+fancyRpartPlot(modFitDecTree$finalModel)
+```
+
+This model can then be used to predict using the testing set, and the confusion matrix shows the accuracy.
+
+```{r decision tree prediction}
+predictDecTree <- predict(modFitDecTree, newdata = testing)
+confusionMatrix(predictDecTree, testing$classe)
+```
+
+The accuracy with the decision tree was found to be 49.1%.
+
+### Gradient Boosted Machine
+
+The gradient boosted machine (GBM) model is summarised below.
+
+```{r gbm}
+modFitGbmControl <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+modFitGbm <- train(classe ~ ., method = "gbm", data = training, trControl = modFitGbmControl, verbose = FALSE)
+print(modFitGbm)
+```
+
+The confusion matrix below shows the accuracy when using this model to predict the testing set.
+
+```{r gbm prediction}
+predictGbm <- predict(modFitGbm, newdata = testing)
+confusionMatrix(predictGbm, testing$classe)
+```
+
+The accuracy with this GBM model was 94.3%.
+
+### Random Forests
+
+Since the random forests model was known to be an intensive drain on computing resources, a control was first created to allow parallel processing. The control allowed for the use of all but 2 cores to allow for general computing processes to continue.
+
+```{r random forests parallel control}
+library(parallel)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 2)
+registerDoParallel(cluster)
+modFitRfControl <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
+```
+
+The random forests model was then run and the confusion matrix shows the accuracy of the prediction with the testing set. It should be noted that after the creating the model, the parallel processing cluster was de-registered.
+
+```{r random forests}
+modFitRf <- train(classe ~ ., method = "rf", data = training, trControl = modFitRfControl)
+stopCluster(cluster)
+registerDoSEQ()
+
+predictRf <- predict(modFitRf, newdata = testing)
+confusionMatrix(predictRf, testing$classe)
+```
+
+The accuracy using the random forests model was 99.2%, the highest of the three models tested. As a result, this was chosen as the model to be used with the validation data set for the quiz section of the course project.
+
+## Validation Set Prediction
+
+The random forests model was found to have the highest accuracy during testing. This was applied to the validation set for the quiz section of the course project.
+
+```{r validation set prediction}
+predictValidation <- predict(modFitRf, newdata = validation)
+predictValidation
+```
+
+This was used to answer the questions in the quiz section of the course project.
+
+
+
+
