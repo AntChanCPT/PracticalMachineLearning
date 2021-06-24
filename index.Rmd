@@ -3,8 +3,9 @@ title: "Practical Machine Learning Course Project"
 author: "AntChanCPT"
 date: "23/06/2021"
 output: 
-  html_document: 
-    keep_md: yes
+    html_document:
+        keep_md: yes
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -110,7 +111,7 @@ predictDecTree <- predict(modFitDecTree, newdata = testing)
 confusionMatrix(predictDecTree, testing$classe)
 ```
 
-The accuracy with the decision tree was found to be 49.1%.
+The accuracy with the decision tree was found to be 49.1%, giving an out of sample error of 50.9%.
 
 ### Gradient Boosted Machine
 
@@ -129,7 +130,7 @@ predictGbm <- predict(modFitGbm, newdata = testing)
 confusionMatrix(predictGbm, testing$classe)
 ```
 
-The accuracy with this GBM model was 94.3%.
+The accuracy with this GBM model was 94.3%, giving an out of sample error of 5.7%.
 
 ### Random Forests
 
@@ -154,7 +155,7 @@ predictRf <- predict(modFitRf, newdata = testing)
 confusionMatrix(predictRf, testing$classe)
 ```
 
-The accuracy using the random forests model was 99.2%, the highest of the three models tested. As a result, this was chosen as the model to be used with the validation data set for the quiz section of the course project.
+The accuracy using the random forests model was 99.2% (out of sample error of 0.8%), the highest of the three models tested. As a result, this was chosen as the model to be used with the validation data set for the quiz section of the course project.
 
 ## Validation Set Prediction
 
